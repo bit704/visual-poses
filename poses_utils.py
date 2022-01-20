@@ -96,7 +96,7 @@ def plot_poses(poses):
             ax.quiver(tvec[0], tvec[1], tvec[2],
                       p[0], p[1], p[2],
                       arrow_length_ratio=0.2,
-                      length=3 if color == 'green' else 0.2,  # z轴画的长一些
+                      length=2 if color == 'green' else 0.2,  # z轴画的长一些
                       color=color)
         tvecs.append(tvec)
     # 连线，绘制相机运动轨迹
