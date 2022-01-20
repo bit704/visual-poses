@@ -28,12 +28,14 @@ def generate_poses(scene_dir):
 
 
 def read_poses(scene_dir):
+    # 求得相机内参数
     camerasfile = os.path.join(scene_dir, 'sparse/0/cameras.bin')
     camdata = read_cameras_binary(camerasfile)
     cam = camdata[list(camdata.keys())[0]]
     h, w, f = cam.height, cam.width, cam.params[0]
     print('高', h, '宽', w, '焦距', f, '（单位:像素）')
 
+    # 求得相机外参数
     imagesfile = os.path.join(scene_dir, 'sparse/0/images.bin')
     imdata = read_images_binary(imagesfile)
     # 场景中所有照片
@@ -49,9 +51,10 @@ def read_poses(scene_dir):
         print('未识别的照片', not_recog_images_name)
         return
     else:
-        print('成功生成全部{}张照片的相机参数'.format(imnum))
+        print('成功生成全部{}张照片的相机外参数'.format(imnum))
     poses = []
     for _, image in imdata.items():
+        # 取出相机外参数的四元数和位移向量
         poses.append((image.qvec, image.tvec))
     return poses
 

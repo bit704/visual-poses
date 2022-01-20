@@ -13,7 +13,7 @@
 ## 备注
 1. 示例实验使用的数据集从[这里](https://drive.google.com/drive/folders/128yBriW1IG_3NJ5Rp7APSTZsJqdJdfc1) 下载(nerf_real_360.zip里面的vasedeck)。也可以使用摄影设备拍摄自己的数据集。
 2. 根据数据集不同，colmap不一定能生成全部照片的相机外参，或根本无法生成。本程序会输出无法生成外参的照片名，并自动给中止程序。
-
+3. 一个奇怪的问题：配置好colmap环境变量后，在Anaconda的baseu环境下，在PyCharm里运行找不到它。切换到Anaconda里其它环境就好了。
 
 
 
