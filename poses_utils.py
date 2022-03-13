@@ -110,3 +110,64 @@ def plot_poses(poses):
     ax.set_ylim(-5, 5)
     ax.set_zlim(0, 5)
     plt.show()
+
+
+def plot_poses_NeRF(poses, z_color, ax):
+    # 绘制NeRF里的poses
+    # z_color，绘制相机坐标系里z轴的颜色
+    tvecs = []
+    for i in range(0, poses.shape[0]):
+        bottom = np.array([0, 0, 0, 1.]).reshape([1, 4])
+        pose = poses[i][..., :4]
+        # 拼接得到4*4相机矩阵c2w
+        m = np.concatenate([pose, bottom], 0)
+        # 求得旋转矩阵和位移向量
+        rotmat = m[0:3, 0:3]
+        # 不修改符号的话，箭头朝向会出现错误
+        rotmat[..., 1] = -rotmat[..., 1]
+        rotmat[..., 2] = -rotmat[..., 2]
+        tvec = m[0:3, 3].reshape([3])
+
+        x = np.matmul(rotmat, np.array([1, 0, 0]))
+        y = np.matmul(rotmat, np.array([0, 1, 0]))
+        z = np.matmul(rotmat, np.array([0, 0, 1]))
+        for p, color in ((x, 'red'), (y, 'blue'), (z, 'green')):
+            # 只画z轴
+            if color != 'green':
+                continue
+            # 向量起点、向量方向（以原点为起点时向量的终点）、箭头长度比例、箭身长度比例、颜色
+            ax.quiver(tvec[0], tvec[1], tvec[2],
+                      p[0], p[1], p[2],
+                      arrow_length_ratio=0.2,
+                      length=0.3 if color == 'green' else 0.2,  # z轴画的长一些
+                      color=z_color)
+        tvecs.append(tvec)
+
+
+def show_poses_from_npy(npy):
+    # 读取的从NeRF中保存的poses,shape为(num, 3, 5),num为照片数
+    poses = np.load(npy)
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+
+    plot_poses_NeRF(poses, 'green', ax)
+
+    ax.set_xlim(-5, 5)
+    ax.set_ylim(-5, 5)
+    ax.set_zlim(0, 5)
+    plt.show()
+
+
+def show_poses_from_npys(npys):
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+
+    npys = npys.split()
+    colors = ['g', 'r', 'b', 'c', 'm', 'y', 'k', 'w']
+    for npy, color in zip(npys, colors):
+        plot_poses_NeRF(np.load(npy), color, ax)
+
+    ax.set_xlim(-5, 5)
+    ax.set_ylim(-5, 5)
+    ax.set_zlim(0, 5)
+    plt.show()
