@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from colmap_utils import *
 from scipy.spatial.transform import Rotation as R
+import json
 
 
 def show_poses(scene_dir):
@@ -139,7 +140,7 @@ def plot_poses_NeRF(poses, z_color, ax):
             ax.quiver(tvec[0], tvec[1], tvec[2],
                       p[0], p[1], p[2],
                       arrow_length_ratio=0.2,
-                      length=0.3 if color == 'green' else 0.2,  # z轴画的长一些
+                      length=0.5 if color == 'green' else 0.2,  # z轴画的长一些
                       color=z_color)
         tvecs.append(tvec)
 
@@ -171,3 +172,99 @@ def show_poses_from_npys(npys):
     ax.set_ylim(-5, 5)
     ax.set_zlim(0, 5)
     plt.show()
+
+
+def show_poses_from_json(json_file):
+    json_file = json.loads(open(json_file).read())
+
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+    for frame in json_file["frames"]:
+        matrix = np.array(frame["transform_matrix"])
+
+        rotmat = matrix[0:3, 0:3]
+        # 不修改符号的话，箭头朝向会出现错误
+        rotmat[..., 1] = -rotmat[..., 1]
+        rotmat[..., 2] = -rotmat[..., 2]
+        tvec = matrix[0:3, 3].reshape([3])
+
+        x = np.matmul(rotmat, np.array([1, 0, 0]))
+        y = np.matmul(rotmat, np.array([0, 1, 0]))
+        z = np.matmul(rotmat, np.array([0, 0, 1]))
+        for p, color in ((x, 'red'), (y, 'blue'), (z, 'green')):
+            # 只画z轴
+            if color != 'green':
+                continue
+            # 向量起点、向量方向（以原点为起点时向量的终点）、箭头长度比例、箭身长度比例、颜色
+            ax.quiver(tvec[0], tvec[1], tvec[2],
+                      p[0], p[1], p[2],
+                      arrow_length_ratio=0.2,
+                      length=1 if color == 'green' else 0.2,  # z轴画的长一些
+                      color=color)
+    ax.set_xlim(-5, 5)
+    ax.set_ylim(-5, 5)
+    ax.set_zlim(0, 5)
+    plt.show()
+
+
+def generate_newposes_from_json(json_file):
+    if json_file is None:
+        print("没有输入json文件")
+    json_file = json.loads(open(json_file).read())
+
+    # 选择指定图片作为正方向
+    frames = {}
+    names = []
+    for frame in json_file["frames"]:
+        name = frame["file_path"].split('/')[-1]
+        matrix = np.array(frame["transform_matrix"])
+        frames[name] = matrix
+        names.append(name)
+    print(names)
+    select_name = input("请选择作为正方向的图片")
+    # IMG_20220304_091819.jpg
+    select_matrix = frames[select_name]
+
+    # 绘制选择结果
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+    for (name, matrix) in frames.items():
+        rotmat = matrix[0:3, 0:3]
+        # 不修改符号的话，箭头朝向会出现错误
+        rotmat[..., 1] = -rotmat[..., 1]
+        rotmat[..., 2] = -rotmat[..., 2]
+        tvec = matrix[0:3, 3].reshape([3])
+
+        # x = np.matmul(rotmat, np.array([1, 0, 0]))
+        # y = np.matmul(rotmat, np.array([0, 1, 0]))
+        # z = np.matmul(rotmat, np.array([0, 0, 1]))
+        # 等价于上面的做乘法
+        x = rotmat[:, 0]
+        y = rotmat[:, 1]
+        z = rotmat[:, 2]
+        for p, color in ((x, 'red'), (y, 'blue'), (z, 'green')):
+            # 只画z轴
+            if color != 'green':
+                continue
+            # 把换中的画为红色。其它的都是绿色。
+            if name == select_name:
+                color = 'red'
+                length = 3
+            else:
+                color = 'green'
+                length = 1
+            # 向量起点、向量方向（以原点为起点时向量的终点）、箭头长度比例、箭身长度比例、颜色
+            ax.quiver(tvec[0], tvec[1], tvec[2],
+                      p[0], p[1], p[2],
+                      arrow_length_ratio=0.2,
+                      length=length,
+                      color=color)
+    ax.set_xlim(-5, 5)
+    ax.set_ylim(-5, 5)
+    ax.set_zlim(0, 5)
+    plt.show()
+
+     # rotations = input("请输入正方向基础上做的旋转")
+
+
+
