@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 from colmap_utils import *
 from scipy.spatial.transform import Rotation as R
 import json
+from math import *
+import copy
 
 
 def show_poses(scene_dir):
@@ -207,6 +209,7 @@ def show_poses_from_json(json_file):
     plt.show()
 
 
+# 生成新视角相机参数
 def generate_newposes_from_json(json_file):
     if json_file is None:
         print("没有输入json文件")
@@ -221,13 +224,93 @@ def generate_newposes_from_json(json_file):
         frames[name] = matrix
         names.append(name)
     print(names)
-    select_name = input("请选择作为正方向的图片")
-    # IMG_20220304_091819.jpg
-    select_matrix = frames[select_name]
 
-    # 绘制选择结果
+    # 选择正方向的图片并根据输入生成新图片
+    select_name = input("请选择作为正方向的基准图片")
+    # IMG_20220304_091819.jpg
+    # 深拷贝
+    select_mat = copy.deepcopy(frames[select_name])
+    select_mat[:, 1] = -select_mat[:, 1]
+    select_mat[:, 2] = -select_mat[:, 2]
+
+    def get_z_rotmat(t):
+        # 输入角度t,返回绕z轴的旋转矩阵
+        t = t / 180 * pi
+        return [[cos(t), -sin(t), 0, 0],
+                [sin(t), cos(t), 0, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 0]]
+
+    select_mat_z = select_mat[0:3, 2]
+    z_axis = np.array([0, 0, 1])
+    # 求除了z轴外的另一条旋转轴
+    rot_axis = np.cross(select_mat_z, z_axis)
+    # 归一化
+    rot_axis = rot_axis / np.linalg.norm(rot_axis)
+
+    def get_arbitrary_rotmat(rot_axis, t):
+        # 输入角度t,返回绕任意轴的旋转矩阵
+        t = t / 180 * pi
+        x = rot_axis[0]
+        y = rot_axis[1]
+        z = rot_axis[2]
+        s = sin(t)
+        c = cos(t)
+        return [[x ** 2 * (1 - c) + c, x * y * (1 - c) + z * s, x * z * (1 - c) - y * s, 0],
+                [x * y * (1 - c) - z * s, y ** 2 * (1 - c) + c, y * z * (1 - c) + x * s, 0],
+                [x * z * (1 - c) + y * s, y * z * (1 - c) - x * s, z ** 2 * (1 - c) + c, 0],
+                [0, 0, 0, 0]]
+
+    new_frames = []
+    # 生成水平垂直各一圈
+    # for i in range(5, 360, 5):
+    #     z_rotmat = get_z_rotmat(i)
+    #     new_frames.append(np.matmul(z_rotmat, select_mat))
+    #     a_rotmat = get_arbitrary_rotmat(rot_axis, i)
+    #     new_frames.append(np.matmul(a_rotmat, select_mat))
+
+    print("在以场景中心为原点，以观察距离为半径的球面上生成新视角图片。")
+    print("水平角度：旋转轴为z轴")
+    print("俯仰角度：旋转轴为与z轴和基准图片观察方向同时垂直的轴\n")
+    # 按照输入水平角度范围、俯仰角度范围、角度密度，生成图片
+    h = int(input("水平角度范围"))
+    v = int(input("俯仰角度范围"))
+    m = int(input("角度密度"))
+
+    for i in range(-h, h + m, m):
+        for j in range(-v, v + m, m):
+            a_rotmat = get_arbitrary_rotmat(rot_axis, j)
+            new_frame = np.matmul(a_rotmat, select_mat)
+            z_rotmat = get_z_rotmat(i)
+            new_frame = np.matmul(z_rotmat, new_frame)
+            new_frames.append(new_frame)
+    print("一共生成", len(new_frames), "张新视角图片")
+
     fig = plt.figure()
     ax = fig.gca(projection='3d')
+
+    # 绘制新图片
+    for matrix in new_frames:
+        rotmat = matrix[0:3, 0:3]
+        tvec = matrix[0:3, 3].reshape([3])
+        x = rotmat[:, 0]
+        y = rotmat[:, 1]
+        z = rotmat[:, 2]
+        for p, color in ((x, 'red'), (y, 'blue'), (z, 'green')):
+            # 只画z轴
+            if color != 'green':
+                continue
+            # 把新图片画为蓝色
+            color = 'blue'
+            length = 2
+            # 向量起点、向量方向（以原点为起点时向量的终点）、箭头长度比例、箭身长度比例、颜色
+            ax.quiver(tvec[0], tvec[1], tvec[2],
+                      p[0], p[1], p[2],
+                      arrow_length_ratio=0.2,
+                      length=length,
+                      color=color)
+
+    # 绘制原有图片
     for (name, matrix) in frames.items():
         rotmat = matrix[0:3, 0:3]
         # 不修改符号的话，箭头朝向会出现错误
@@ -246,7 +329,7 @@ def generate_newposes_from_json(json_file):
             # 只画z轴
             if color != 'green':
                 continue
-            # 把换中的画为红色。其它的都是绿色。
+            # 把选中的画为红色，并且画长一点。其它的都画绿色。
             if name == select_name:
                 color = 'red'
                 length = 3
@@ -259,12 +342,8 @@ def generate_newposes_from_json(json_file):
                       arrow_length_ratio=0.2,
                       length=length,
                       color=color)
+
     ax.set_xlim(-5, 5)
     ax.set_ylim(-5, 5)
     ax.set_zlim(0, 5)
     plt.show()
-
-     # rotations = input("请输入正方向基础上做的旋转")
-
-
-
